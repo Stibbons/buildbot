@@ -273,6 +273,14 @@ class TreeSize(ShellCommand):
         if m:
             self.kib = int(m.group(1))
             self.setProperty("tree-size-KiB", self.kib, "treesize")
+            context = {
+                'builder_name': self.build.name,
+                'step_name': self.name,
+            }
+            d = self.master.metricsService.postMetricsValue("tree-size-KiB", self.kib, context)
+            # commandComplete now returns a deferred, this should work since it is always called
+            # within a addCallback
+            return d
 
     def evaluateCommand(self, cmd):
         if cmd.didFail():
