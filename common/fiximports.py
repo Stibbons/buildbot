@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 '''Check and sort import statement from a python file '''
+from __future__ import absolute_import
 
 import re
 import sys
@@ -18,10 +19,10 @@ class FixImports(object):
 
     def printErrorMsg(self, filename, lineNb, errorMessage):
         ''' I print the error message following pylint convention'''
-        print ("%(filename)s:%(line_nb)s: %(error_msg)s" %
-               dict(filename=filename,
-                    line_nb=lineNb,
-                    error_msg=errorMessage))
+        print("%(filename)s:%(line_nb)s: %(error_msg)s" %
+              dict(filename=filename,
+                   line_nb=lineNb,
+                   error_msg=errorMessage))
 
     def isImportLine(self, line):
         '''I return True is the given line is an import statement, False otherwize'''
@@ -70,7 +71,9 @@ class FixImports(object):
                )
         return ret
 
-    def sortImportGroups(self, filename, data=None):
+    def sortImportGroups(self, filename, data=None,
+                         splitImportStatements=True,
+                         sortImportStatements=True):
         '''
         I perform the analysis of the given file, print the error I find and try to split and
         sort the import statement
@@ -97,13 +100,13 @@ class FixImports(object):
         iter = lines.__iter__()
         while True:
             try:
-                line = iter.next()
+                line = iter.__next__()
             except StopIteration:
                 break
             if self.isImportLine(line):
                 # join any continuation lines (\\)
                 while line[-1] == '\\':
-                    line = line[:-1] + iter.next()
+                    line = line[:-1] + iter.__next__()
                 if self.group_start is None:
                     self.group_start = len(newlines)
 
@@ -111,9 +114,12 @@ class FixImports(object):
                     match = self._regexFromImport.match(line)
                     if match:
                         module = match.group(1)
-                        imports = [s.strip() for s in match.group(2).split(",")]
-                        for imp in imports:
-                            newlines.append("from %s import %s" % (module, imp))
+                        imports = sorted([s.strip() for s in match.group(2).split(",")])
+                        if splitImportStatements:
+                            for imp in imports:
+                                newlines.append("from %s import %s" % (module, imp))
+                        else:
+                            newlines.append("from %s import %s" % (module, ", ".join(imports)))
                         continue
             else:
                 maybeEndGroup()
@@ -121,13 +127,15 @@ class FixImports(object):
 
         maybeEndGroup()
 
-        lines = newlines
-        for start, end in self.groups:
-            lines[start:end] = sorted(lines[start:end], key=self.importOrder)
+        # sort each group
+        if sortImportStatements:
+            lines = newlines
+            for start, end in self.groups:
+                lines[start:end] = sorted(lines[start:end], key=self.importOrder)
 
         # reiterate line by line to split mixed groups
-        splitted_groups_lines = []
         prev_import_line_type = ""
+        splitted_groups_lines = []
         for line in lines:
             if not line.strip() or not self.isImportLine(line):
                 splitted_groups_lines.append(line)
@@ -154,7 +162,7 @@ class FixImports(object):
 def main():
     '''I am the main method'''
     if len(sys.argv) != 2:
-        print "usage: %s <python file>" % (sys.argv[0])
+        print("usage: %s <python file>" % (sys.argv[0]))
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -168,7 +176,7 @@ def main():
     with open(filename, 'w') as filedesc:
         filedesc.write(content)
     if data != content:
-        print "import successfully reordered for file: %s" % (filename)
+        print("import successfully reordered for file: %s" % (filename))
     sys.exit(0)
 
 if __name__ == "__main__":
